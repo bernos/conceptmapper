@@ -2,22 +2,9 @@ package conceptmap
 
 import (
 	"strings"
-
-	"github.com/gosimple/slug"
 )
 
 type Predicate string
-
-// Concept is a node in the concept map
-type Concept struct {
-	Label       string
-	Description string
-}
-
-// Key is normalised key of the concept
-func (c *Concept) Key() string {
-	return slug.Make(c.Label)
-}
 
 // Proposition is a phrase consisting of two concepts joined by a predicate
 type Proposition struct {

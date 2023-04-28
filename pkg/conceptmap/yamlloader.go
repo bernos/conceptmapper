@@ -9,10 +9,10 @@ import (
 )
 
 type yamlDefinition struct {
-	Title        string            `yaml:"title"`
-	Description  string            `yaml:"description"`
-	Propositions string            `yaml:"propositions"`
-	Concepts     map[string]string `yaml:"concepts"`
+	Title        string              `yaml:"title"`
+	Description  string              `yaml:"description"`
+	Propositions string              `yaml:"propositions"`
+	Concepts     map[string]*Concept `yaml:"concepts"`
 }
 
 // LoadFromYamlFile loads a Map from a yaml file
@@ -60,7 +60,7 @@ func LoadFromYamlReader(r io.Reader) ([]*ConceptMap, error) {
 		for k, v := range def.Concepts {
 			for _, c := range m.Concepts {
 				if c.Label == k {
-					c.Description = v
+					c.Description = v.Description
 				}
 			}
 		}

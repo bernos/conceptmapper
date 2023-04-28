@@ -6,20 +6,15 @@ import (
 	"log"
 	"os"
 
-	"github.com/bernos/conceptmapping/pkg/conceptmap"
+	"github.com/bernos/conceptmapper/pkg/conceptmap"
 	"github.com/urfave/cli/v2"
 )
-
-// var (
-// 	InputFile = "examples/mkdocs/concept-map.yaml"
-// 	OutputDir = "examples/mkdocs/docs"
-// )
 
 func main() {
 	ctx := context.Background()
 
 	app := &cli.App{
-		Name:  "conceptmapping",
+		Name:  "conceptmapper",
 		Usage: "Build concept maps",
 
 		Commands: []*cli.Command{

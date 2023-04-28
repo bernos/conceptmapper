@@ -1,4 +1,4 @@
-module github.com/bernos/conceptmapping
+module github.com/bernos/conceptmapper
 
 go 1.19
 

@@ -63,7 +63,7 @@ type conceptMapPageTemplateData struct {
 
 func NewConceptMapPageTemplateData(conceptMap *ConceptMap) *conceptMapPageTemplateData {
 	return &conceptMapPageTemplateData{
-		Diagram:    NewFilePathHelper("").ConceptMapImageFile(conceptMap),
+		Diagram:    NewFilePathHelper("").ConceptMapSummaryImageFile(conceptMap),
 		ConceptMap: conceptMap,
 	}
 }
@@ -87,8 +87,6 @@ func NewConceptPageTemplateData(conceptMap *ConceptMap, concept *Concept) *conce
 type SiteGenerator interface {
 	GenerateSite(ctx context.Context, cmaps []*ConceptMap) error
 }
-
-// type MarkdownSiteGeneratorOption func(*MarkdownSiteGenerator)
 
 type MarkdownSiteGenerator struct {
 	diagramGenerator DiagramGenerator
@@ -130,9 +128,9 @@ func (sg *MarkdownSiteGenerator) GenerateSite(ctx context.Context, cmaps []*Conc
 }
 
 func (sg *MarkdownSiteGenerator) generateConceptMapPage(ctx context.Context, cmap *ConceptMap) error {
-	diagramFile := sg.filePathHelper.ConceptMapImageFile(cmap)
+	diagramFile := sg.filePathHelper.ConceptMapSummaryImageFile(cmap)
 
-	if err := sg.diagramGenerator.GenerateConceptMapSVG(ctx, cmap, diagramFile); err != nil {
+	if err := sg.diagramGenerator.GenerateConceptMapSummarySVG(ctx, cmap, diagramFile); err != nil {
 		return err
 	}
 
@@ -178,11 +176,18 @@ func (h *FilePathHelper) ImageDir() string {
 	return filepath.Join(h.BaseDir, "images")
 }
 
-func (h *FilePathHelper) ConceptMapImageFile(conceptMap *ConceptMap) string {
+func (h *FilePathHelper) ConceptMapSummaryImageFile(conceptMap *ConceptMap) string {
 	return filepath.Join(
 		h.BaseDir,
 		"images",
 		fmt.Sprintf("%s.svg", conceptMap.Slug()))
+}
+
+func (h *FilePathHelper) ConceptMapDetailedImageFile(conceptMap *ConceptMap) string {
+	return filepath.Join(
+		h.BaseDir,
+		"images",
+		fmt.Sprintf("%s_detailed.svg", conceptMap.Slug()))
 }
 
 func (h *FilePathHelper) IndexMarkdownFile() string {

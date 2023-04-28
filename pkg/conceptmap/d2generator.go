@@ -163,7 +163,16 @@ func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*Propo
 	return d2format.Format(graph.AST), nil
 }
 
-func (d *D2DiagramGenerator) GenerateConceptMapSVG(ctx context.Context, cmap *ConceptMap, file string) error {
+func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, cmap *ConceptMap, file string) error {
+	script, err := d.D2Script(ctx, cmap.Propositions)
+	if err != nil {
+		return err
+	}
+
+	return d.generateSVGFileFromScript(ctx, script, file)
+}
+
+func (d *D2DiagramGenerator) GenerateConceptMapDetailedSVG(ctx context.Context, cmap *ConceptMap, file string) error {
 	script, err := d.D2Script(ctx, cmap.Propositions)
 	if err != nil {
 		return err
