@@ -17,6 +17,22 @@ import (
 	"oss.terrastruct.com/d2/lib/textmeasure"
 )
 
+const (
+	DirectionDown Direction = iota
+	DirectionRight
+)
+
+type Direction int64
+
+func (d Direction) String() string {
+	switch d {
+	case DirectionRight:
+		return "right"
+	default:
+		return "down"
+	}
+}
+
 type D2DiagramGeneratorOption func(*D2DiagramGenerator)
 type D2GraphModifier func(*d2graph.Graph) (*d2graph.Graph, error)
 type D2RulerFactory func() (*textmeasure.Ruler, error)
@@ -33,7 +49,14 @@ func WithD2RulerFactory(fn D2RulerFactory) D2DiagramGeneratorOption {
 	}
 }
 
+func WithDirection(direction Direction) D2DiagramGeneratorOption {
+	return func(d *D2DiagramGenerator) {
+		d.direction = direction
+	}
+}
+
 type D2DiagramGenerator struct {
+	direction      Direction
 	ruler          *textmeasure.Ruler
 	rulerFactory   D2RulerFactory
 	graphModifiers []D2GraphModifier
@@ -41,6 +64,7 @@ type D2DiagramGenerator struct {
 
 func NewD2DiagramGenerator(opts ...D2DiagramGeneratorOption) *D2DiagramGenerator {
 	d := &D2DiagramGenerator{
+		direction:      DirectionRight,
 		rulerFactory:   defaultRulerFactory,
 		graphModifiers: []D2GraphModifier{},
 	}
@@ -55,7 +79,7 @@ func NewD2DiagramGenerator(opts ...D2DiagramGeneratorOption) *D2DiagramGenerator
 func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*Proposition, modifiers ...D2GraphModifier) (string, error) {
 	var err error
 
-	_, graph, err := d2lib.Compile(ctx, "", nil)
+	_, graph, err := d2lib.Compile(ctx, fmt.Sprintf("direction: %s", d.direction), nil)
 	if err != nil {
 		return "", nil
 	}
@@ -166,8 +190,15 @@ func (d *D2DiagramGenerator) generateSVGFileFromScript(ctx context.Context, scri
 		return err
 	}
 
+	layout := func(ctx context.Context, g *d2graph.Graph) (err error) {
+		return d2dagrelayout.Layout(ctx, g, &d2dagrelayout.ConfigurableOpts{
+			NodeSep: 30,
+			EdgeSep: 10,
+		})
+	}
+
 	diagram, _, _ := d2lib.Compile(ctx, script, &d2lib.CompileOptions{
-		Layout: d2dagrelayout.DefaultLayout,
+		Layout: layout,
 		Ruler:  ruler,
 	})
 
@@ -203,5 +234,20 @@ func emphasiseConceptWithKey(key string) D2GraphModifier {
 	return func(g *d2graph.Graph) (*d2graph.Graph, error) {
 		s := "true"
 		return d2oracle.Set(g, fmt.Sprintf("%s.style.underline", key), nil, &s)
+	}
+}
+
+func addLinksToConcepts(cmap *ConceptMap, concepts []*Concept) D2GraphModifier {
+	return func(g *d2graph.Graph) (*d2graph.Graph, error) {
+		for _, concept := range concepts {
+			// link := fmt.Sprintf("http://localhost:8080/%s_%s/", cmap.Slug(), concept.Key())
+			link := "https://google.com"
+
+			g, err := d2oracle.Set(g, fmt.Sprintf("%s.link", concept.Key()), nil, &link)
+			if err != nil {
+				return g, err
+			}
+		}
+		return g, nil
 	}
 }

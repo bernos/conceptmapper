@@ -2,29 +2,66 @@ package main
 
 import (
 	"context"
-	"path/filepath"
+	"fmt"
+	"log"
+	"os"
 
 	"github.com/bernos/conceptmapping/pkg/conceptmap"
+	"github.com/urfave/cli/v2"
 )
 
-var (
-	InputDir  = "input"
-	OutputDir = "output/concept-map/docs"
-)
+// var (
+// 	InputFile = "examples/mkdocs/concept-map.yaml"
+// 	OutputDir = "examples/mkdocs/docs"
+// )
 
 func main() {
 	ctx := context.Background()
-	yamlFile := filepath.Join(InputDir, "maps.yaml")
 
-	maps, err := conceptmap.LoadFromYamlFile(yamlFile)
-	if err != nil {
-		panic(err)
+	app := &cli.App{
+		Name:  "conceptmapping",
+		Usage: "Build concept maps",
+
+		Commands: []*cli.Command{
+			{
+				Name: "generate-markdown-site",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "outdir",
+						Aliases: []string{"o"},
+						Usage:   "Output markdown site to this dir",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					outputDir := c.String("outdir")
+					inputFile := c.Args().Get(0)
+
+					if outputDir == "" {
+						return fmt.Errorf("outdir is required")
+					}
+
+					if inputFile == "" {
+						return fmt.Errorf("input file is required")
+					}
+
+					maps, err := conceptmap.LoadFromYamlFile(inputFile)
+					if err != nil {
+						return err
+					}
+
+					diagramGenerator := conceptmap.NewD2DiagramGenerator(
+						conceptmap.WithDirection(conceptmap.DirectionDown))
+
+					siteGenererator := conceptmap.NewMarkdownSiteGenerator(diagramGenerator, outputDir)
+
+					return siteGenererator.GenerateSite(ctx, maps)
+				},
+			},
+		},
 	}
 
-	diagramGenerator := conceptmap.NewD2Diagram()
-	siteGenererator := conceptmap.NewMarkdownSiteGenerator(diagramGenerator, OutputDir)
-
-	if err := siteGenererator.GenerateSite(ctx, maps); err != nil {
-		panic(err)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
 	}
+
 }
