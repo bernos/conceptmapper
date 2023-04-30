@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gosimple/slug"
@@ -164,7 +165,13 @@ func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*Propo
 }
 
 func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, cmap *ConceptMap, file string) error {
-	script, err := d.D2Script(ctx, cmap.Propositions)
+	propositions := cmap.Propositions
+
+	if cmap.HasKeyConcepts() {
+		propositions = cmap.Propositions.ConnectingConcepts(cmap.KeyConcepts()...)
+	}
+
+	script, err := d.D2Script(ctx, propositions)
 	if err != nil {
 		return err
 	}
@@ -172,7 +179,7 @@ func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, c
 	return d.generateSVGFileFromScript(ctx, script, file)
 }
 
-func (d *D2DiagramGenerator) GenerateConceptMapDetailedSVG(ctx context.Context, cmap *ConceptMap, file string) error {
+func (d *D2DiagramGenerator) GenerateConceptMapDetailSVG(ctx context.Context, cmap *ConceptMap, file string) error {
 	script, err := d.D2Script(ctx, cmap.Propositions)
 	if err != nil {
 		return err
@@ -182,7 +189,7 @@ func (d *D2DiagramGenerator) GenerateConceptMapDetailedSVG(ctx context.Context, 
 }
 
 func (d *D2DiagramGenerator) GenerateSingleConceptSVG(ctx context.Context, cmap *ConceptMap, concept *Concept, file string) error {
-	filtered := cmap.Propositions.InvolvingConcept(concept)
+	filtered := cmap.Propositions.InvolvingConcepts(concept)
 
 	script, err := d.D2Script(ctx, filtered, emphasiseConceptWithKey(concept.Key()))
 	if err != nil {
@@ -216,6 +223,10 @@ func (d *D2DiagramGenerator) generateSVGFileFromScript(ctx context.Context, scri
 	})
 
 	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return err
 	}
 

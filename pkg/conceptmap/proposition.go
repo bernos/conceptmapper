@@ -29,9 +29,35 @@ func (ps PropositionList) Where(fn PropositionFilter) PropositionList {
 	return output
 }
 
-func (ps PropositionList) InvolvingConcept(c *Concept) PropositionList {
+func (ps PropositionList) InvolvingConcepts(cs ...*Concept) PropositionList {
 	return ps.Where(func(p *Proposition) bool {
-		return p.Left.Key() == c.Key() || p.Right.Key() == c.Key()
+		for _, c := range cs {
+			if p.Left.Key() == c.Key() || p.Right.Key() == c.Key() {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func (ps PropositionList) ConnectingConcepts(cs ...*Concept) PropositionList {
+	return ps.Where(func(p *Proposition) bool {
+		l := false
+		r := false
+		for _, c := range cs {
+			if p.Left.Key() == c.Key() {
+				l = true
+			}
+
+			if p.Right.Key() == c.Key() {
+				r = true
+			}
+
+			if l && r {
+				return true
+			}
+		}
+		return false
 	})
 }
 

@@ -61,6 +61,7 @@ func LoadFromYamlReader(r io.Reader) ([]*ConceptMap, error) {
 			for _, c := range m.Concepts {
 				if c.Label == k {
 					c.Description = v.Description
+					c.IsKeyConcept = v.IsKeyConcept
 				}
 			}
 		}
