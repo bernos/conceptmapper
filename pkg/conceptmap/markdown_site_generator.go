@@ -141,9 +141,6 @@ func NewMarkdownSiteGenerator(dg DiagramGenerator, outputDir string) SiteGenerat
 }
 
 func (sg *MarkdownSiteGenerator) GenerateSite(ctx context.Context, cmaps []*ConceptMap) error {
-	if err := os.MkdirAll(sg.filePathHelper.ImageDir(), os.ModePerm); err != nil {
-		return err
-	}
 
 	if err := sg.renderTemplateToFile(
 		sg.filePathHelper.IndexMarkdownFile(),
@@ -233,10 +230,6 @@ func NewFilePathHelper(baseDir string) *FilePathHelper {
 	return &FilePathHelper{
 		BaseDir: baseDir,
 	}
-}
-
-func (h *FilePathHelper) ImageDir() string {
-	return filepath.Join(h.BaseDir, "images")
 }
 
 func (h *FilePathHelper) ConceptMapSummaryImageFile(conceptMap *ConceptMap) string {
