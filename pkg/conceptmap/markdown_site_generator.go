@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"text/template"
 )
 
@@ -115,12 +116,20 @@ type conceptPageTemplateData struct {
 	RelatedConcepts []*Concept
 }
 
+type ByLabel []*Concept
+
+func (concepts ByLabel) Len() int           { return len(concepts) }
+func (concepts ByLabel) Swap(i, j int)      { concepts[i], concepts[j] = concepts[j], concepts[i] }
+func (concepts ByLabel) Less(i, j int) bool { return concepts[i].Label < concepts[j].Label }
+
 func NewConceptPageTemplateData(conceptMap *ConceptMap, concept *Concept) *conceptPageTemplateData {
+	relatedConcepts := conceptMap.ConceptsRelatedTo(concept)
+	sort.Sort(ByLabel(relatedConcepts))
 	return &conceptPageTemplateData{
 		ConceptMap:      conceptMap,
 		Concept:         concept,
 		Diagram:         NewFilePathHelper("../../../").ConceptImageFile(conceptMap, concept),
-		RelatedConcepts: conceptMap.ConceptsRelatedTo(concept),
+		RelatedConcepts: relatedConcepts,
 	}
 }
 
