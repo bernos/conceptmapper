@@ -8,6 +8,7 @@ import (
 
 	"github.com/bernos/conceptmapper/pkg/conceptmap"
 	"github.com/bernos/conceptmapper/pkg/diagrams"
+	"github.com/bernos/conceptmapper/pkg/sitegenerator"
 	"github.com/urfave/cli/v2"
 )
 
@@ -48,7 +49,7 @@ func main() {
 					diagramGenerator := diagrams.NewD2DiagramGenerator(
 						diagrams.WithDirection(diagrams.DirectionDown))
 
-					siteGenererator := conceptmap.NewMarkdownSiteGenerator(diagramGenerator, outputDir)
+					siteGenererator := sitegenerator.NewMarkdownSiteGenerator(diagramGenerator, outputDir)
 
 					return siteGenererator.GenerateSite(ctx, maps)
 				},
