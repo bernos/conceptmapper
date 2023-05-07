@@ -3,9 +3,9 @@ package conceptmap
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"text/template"
 )
 
@@ -75,14 +75,26 @@ var (
 `))
 )
 
+type PageTemplate interface {
+	Render(io.Writer) error
+}
+
+type PageTemplateFunc func(io.Writer) error
+
+func (fn PageTemplateFunc) Render(w io.Writer) error {
+	return fn(w)
+}
+
 type indexPageTemplateData struct {
 	ConceptMaps []*ConceptMap
 }
 
-func NewIndexPageTemplateData(conceptMaps []*ConceptMap) *indexPageTemplateData {
-	return &indexPageTemplateData{
-		ConceptMaps: conceptMaps,
-	}
+func NewIndexPageTemplate(conceptMaps []*ConceptMap) PageTemplate {
+	return PageTemplateFunc(func(w io.Writer) error {
+		return indexPageTemplate.Execute(w, &indexPageTemplateData{
+			ConceptMaps: conceptMaps,
+		})
+	})
 }
 
 type conceptMapSummaryPageTemplateData struct {
@@ -90,11 +102,13 @@ type conceptMapSummaryPageTemplateData struct {
 	ConceptMap *ConceptMap
 }
 
-func NewConceptMapSummaryPageTemplateData(conceptMap *ConceptMap) *conceptMapSummaryPageTemplateData {
-	return &conceptMapSummaryPageTemplateData{
-		Diagram:    NewFilePathHelper("../../").ConceptMapSummaryImageFile(conceptMap),
-		ConceptMap: conceptMap,
-	}
+func NewConceptMapSummaryPageTemplate(conceptMap *ConceptMap) PageTemplate {
+	return PageTemplateFunc(func(w io.Writer) error {
+		return conceptMapSummaryPageTemplate.Execute(w, &conceptMapSummaryPageTemplateData{
+			Diagram:    NewFilePathHelper("../../").ConceptMapSummaryImageFile(conceptMap),
+			ConceptMap: conceptMap,
+		})
+	})
 }
 
 type conceptMapDetailPageTemplateData struct {
@@ -102,11 +116,14 @@ type conceptMapDetailPageTemplateData struct {
 	ConceptMap *ConceptMap
 }
 
-func NewConceptMapDetailPageTemplateData(conceptMap *ConceptMap) *conceptMapSummaryPageTemplateData {
-	return &conceptMapSummaryPageTemplateData{
-		Diagram:    NewFilePathHelper("../../").ConceptMapDetailImageFile(conceptMap),
-		ConceptMap: conceptMap,
-	}
+func NewConceptMapDetailPageTemplate(conceptMap *ConceptMap) PageTemplate {
+	return PageTemplateFunc(func(w io.Writer) error {
+		return conceptMapDetailPageTemplate.Execute(w, &conceptMapSummaryPageTemplateData{
+			Diagram:    NewFilePathHelper("../../").ConceptMapDetailImageFile(conceptMap),
+			ConceptMap: conceptMap,
+		})
+	})
+
 }
 
 type conceptPageTemplateData struct {
@@ -116,25 +133,15 @@ type conceptPageTemplateData struct {
 	RelatedConcepts []*Concept
 }
 
-type ByLabel []*Concept
-
-func (concepts ByLabel) Len() int           { return len(concepts) }
-func (concepts ByLabel) Swap(i, j int)      { concepts[i], concepts[j] = concepts[j], concepts[i] }
-func (concepts ByLabel) Less(i, j int) bool { return concepts[i].Label < concepts[j].Label }
-
-func NewConceptPageTemplateData(conceptMap *ConceptMap, concept *Concept) *conceptPageTemplateData {
-	relatedConcepts := conceptMap.ConceptsRelatedTo(concept)
-	sort.Sort(ByLabel(relatedConcepts))
-	return &conceptPageTemplateData{
-		ConceptMap:      conceptMap,
-		Concept:         concept,
-		Diagram:         NewFilePathHelper("../../../").ConceptImageFile(conceptMap, concept),
-		RelatedConcepts: relatedConcepts,
-	}
-}
-
-type SiteGenerator interface {
-	GenerateSite(ctx context.Context, cmaps []*ConceptMap) error
+func NewConceptPageTemplate(conceptMap *ConceptMap, concept *Concept) PageTemplate {
+	return PageTemplateFunc(func(w io.Writer) error {
+		return conceptPageTemplate.Execute(w, &conceptPageTemplateData{
+			ConceptMap:      conceptMap,
+			Concept:         concept,
+			Diagram:         NewFilePathHelper("../../../").ConceptImageFile(conceptMap, concept),
+			RelatedConcepts: conceptMap.ConceptsRelatedTo(concept),
+		})
+	})
 }
 
 type MarkdownSiteGenerator struct {
@@ -142,7 +149,7 @@ type MarkdownSiteGenerator struct {
 	filePathHelper   *FilePathHelper
 }
 
-func NewMarkdownSiteGenerator(dg DiagramGenerator, outputDir string) SiteGenerator {
+func NewMarkdownSiteGenerator(dg DiagramGenerator, outputDir string) *MarkdownSiteGenerator {
 	return &MarkdownSiteGenerator{
 		diagramGenerator: dg,
 		filePathHelper:   NewFilePathHelper(outputDir),
@@ -153,8 +160,7 @@ func (sg *MarkdownSiteGenerator) GenerateSite(ctx context.Context, cmaps []*Conc
 
 	if err := sg.renderTemplateToFile(
 		sg.filePathHelper.IndexMarkdownFile(),
-		indexPageTemplate,
-		NewIndexPageTemplateData(cmaps)); err != nil {
+		NewIndexPageTemplate(cmaps)); err != nil {
 		return err
 	}
 
@@ -188,8 +194,7 @@ func (sg *MarkdownSiteGenerator) generateConceptMapSummaryPage(ctx context.Conte
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMapSummaryMarkdownFile(cmap),
-		conceptMapSummaryPageTemplate,
-		NewConceptMapSummaryPageTemplateData(cmap))
+		NewConceptMapSummaryPageTemplate(cmap))
 }
 
 func (sg *MarkdownSiteGenerator) generateConceptMapDetailPage(ctx context.Context, cmap *ConceptMap) error {
@@ -201,8 +206,7 @@ func (sg *MarkdownSiteGenerator) generateConceptMapDetailPage(ctx context.Contex
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMapDetailMarkdownFile(cmap),
-		conceptMapDetailPageTemplate,
-		NewConceptMapDetailPageTemplateData(cmap))
+		NewConceptMapDetailPageTemplate(cmap))
 }
 
 func (sg *MarkdownSiteGenerator) generateConceptPage(ctx context.Context, cmap *ConceptMap, concept *Concept) error {
@@ -214,11 +218,10 @@ func (sg *MarkdownSiteGenerator) generateConceptPage(ctx context.Context, cmap *
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMarkdownFile(cmap, concept),
-		conceptPageTemplate,
-		NewConceptPageTemplateData(cmap, concept))
+		NewConceptPageTemplate(cmap, concept))
 }
 
-func (sg *MarkdownSiteGenerator) renderTemplateToFile(file string, tpl *template.Template, data any) error {
+func (sg *MarkdownSiteGenerator) renderTemplateToFile(file string, tpl PageTemplate) error {
 	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return err
 	}
@@ -228,7 +231,7 @@ func (sg *MarkdownSiteGenerator) renderTemplateToFile(file string, tpl *template
 		return err
 	}
 
-	return tpl.Execute(f, data)
+	return tpl.Render(f)
 }
 
 type FilePathHelper struct {

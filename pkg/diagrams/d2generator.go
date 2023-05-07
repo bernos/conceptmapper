@@ -1,4 +1,4 @@
-package conceptmap
+package diagrams
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bernos/conceptmapper/pkg/conceptmap"
 	"github.com/gosimple/slug"
 	"oss.terrastruct.com/d2/d2format"
 	"oss.terrastruct.com/d2/d2graph"
@@ -17,44 +18,6 @@ import (
 	"oss.terrastruct.com/d2/d2renderers/d2svg"
 	"oss.terrastruct.com/d2/lib/textmeasure"
 )
-
-const (
-	DirectionDown Direction = iota
-	DirectionRight
-)
-
-type Direction int64
-
-func (d Direction) String() string {
-	switch d {
-	case DirectionRight:
-		return "right"
-	default:
-		return "down"
-	}
-}
-
-type D2DiagramGeneratorOption func(*D2DiagramGenerator)
-type D2GraphModifier func(*d2graph.Graph) (*d2graph.Graph, error)
-type D2RulerFactory func() (*textmeasure.Ruler, error)
-
-func WithD2GraphModifier(mod D2GraphModifier) D2DiagramGeneratorOption {
-	return func(d *D2DiagramGenerator) {
-		d.graphModifiers = append(d.graphModifiers, mod)
-	}
-}
-
-func WithD2RulerFactory(fn D2RulerFactory) D2DiagramGeneratorOption {
-	return func(d *D2DiagramGenerator) {
-		d.rulerFactory = fn
-	}
-}
-
-func WithDirection(direction Direction) D2DiagramGeneratorOption {
-	return func(d *D2DiagramGenerator) {
-		d.direction = direction
-	}
-}
 
 type D2DiagramGenerator struct {
 	direction      Direction
@@ -77,7 +40,7 @@ func NewD2DiagramGenerator(opts ...D2DiagramGeneratorOption) *D2DiagramGenerator
 	return d
 }
 
-func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*Proposition, modifiers ...D2GraphModifier) (string, error) {
+func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*conceptmap.Proposition, modifiers ...D2GraphModifier) (string, error) {
 	var err error
 
 	_, graph, err := d2lib.Compile(ctx, fmt.Sprintf("direction: %s", d.direction), nil)
@@ -164,7 +127,7 @@ func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*Propo
 	return d2format.Format(graph.AST), nil
 }
 
-func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, cmap *ConceptMap, file string) error {
+func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, cmap *conceptmap.ConceptMap, file string) error {
 	propositions := cmap.Propositions
 
 	if cmap.HasKeyConcepts() {
@@ -179,7 +142,7 @@ func (d *D2DiagramGenerator) GenerateConceptMapSummarySVG(ctx context.Context, c
 	return d.generateSVGFileFromScript(ctx, script, file)
 }
 
-func (d *D2DiagramGenerator) GenerateConceptMapDetailSVG(ctx context.Context, cmap *ConceptMap, file string) error {
+func (d *D2DiagramGenerator) GenerateConceptMapDetailSVG(ctx context.Context, cmap *conceptmap.ConceptMap, file string) error {
 	script, err := d.D2Script(ctx, cmap.Propositions)
 	if err != nil {
 		return err
@@ -188,7 +151,7 @@ func (d *D2DiagramGenerator) GenerateConceptMapDetailSVG(ctx context.Context, cm
 	return d.generateSVGFileFromScript(ctx, script, file)
 }
 
-func (d *D2DiagramGenerator) GenerateSingleConceptSVG(ctx context.Context, cmap *ConceptMap, concept *Concept, file string) error {
+func (d *D2DiagramGenerator) GenerateSingleConceptSVG(ctx context.Context, cmap *conceptmap.ConceptMap, concept *conceptmap.Concept, file string) error {
 	filtered := cmap.Propositions.InvolvingConcepts(concept)
 
 	script, err := d.D2Script(ctx, filtered, emphasiseConceptWithKey(concept.Key()))
@@ -244,30 +207,4 @@ func (d *D2DiagramGenerator) getRuler() (*textmeasure.Ruler, error) {
 	}
 
 	return d.ruler, nil
-}
-
-func defaultRulerFactory() (*textmeasure.Ruler, error) {
-	return textmeasure.NewRuler()
-}
-
-func emphasiseConceptWithKey(key string) D2GraphModifier {
-	return func(g *d2graph.Graph) (*d2graph.Graph, error) {
-		s := "true"
-		return d2oracle.Set(g, fmt.Sprintf("%s.style.underline", key), nil, &s)
-	}
-}
-
-func addLinksToConcepts(cmap *ConceptMap, concepts []*Concept) D2GraphModifier {
-	return func(g *d2graph.Graph) (*d2graph.Graph, error) {
-		for _, concept := range concepts {
-			// link := fmt.Sprintf("http://localhost:8080/%s_%s/", cmap.Slug(), concept.Key())
-			link := "https://google.com"
-
-			g, err := d2oracle.Set(g, fmt.Sprintf("%s.link", concept.Key()), nil, &link)
-			if err != nil {
-				return g, err
-			}
-		}
-		return g, nil
-	}
 }
