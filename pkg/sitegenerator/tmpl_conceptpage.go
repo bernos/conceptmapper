@@ -31,12 +31,12 @@ type conceptPageTemplateData struct {
 	RelatedConcepts []*conceptmap.Concept
 }
 
-func NewConceptPageTemplate(conceptMap *conceptmap.ConceptMap, concept *conceptmap.Concept) PageTemplate {
+func NewConceptPageTemplate(conceptMap *conceptmap.ConceptMap, concept *conceptmap.Concept, ph *FilePathHelper) PageTemplate {
 	return PageTemplateFunc(func(w io.Writer) error {
 		return conceptPageTemplate.Execute(w, &conceptPageTemplateData{
 			ConceptMap:      conceptMap,
 			Concept:         concept,
-			Diagram:         NewFilePathHelper("../../../").ConceptImageFile(conceptMap, concept),
+			Diagram:         ph.ConceptImageFile(conceptMap, concept),
 			RelatedConcepts: conceptMap.ConceptsRelatedTo(concept),
 		})
 	})

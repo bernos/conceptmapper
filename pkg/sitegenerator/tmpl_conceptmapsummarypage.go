@@ -38,10 +38,10 @@ type conceptMapSummaryPageTemplateData struct {
 	ConceptMap *conceptmap.ConceptMap
 }
 
-func NewConceptMapSummaryPageTemplate(conceptMap *conceptmap.ConceptMap) PageTemplate {
+func NewConceptMapSummaryPageTemplate(conceptMap *conceptmap.ConceptMap, ph *FilePathHelper) PageTemplate {
 	return PageTemplateFunc(func(w io.Writer) error {
 		return conceptMapSummaryPageTemplate.Execute(w, &conceptMapSummaryPageTemplateData{
-			Diagram:    NewFilePathHelper("../../").ConceptMapSummaryImageFile(conceptMap),
+			Diagram:    ph.ConceptMapSummaryImageFile(conceptMap),
 			ConceptMap: conceptMap,
 		})
 	})

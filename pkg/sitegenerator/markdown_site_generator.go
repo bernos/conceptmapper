@@ -82,7 +82,7 @@ func (sg *MarkdownSiteGenerator) generateConceptMapSummaryPage(ctx context.Conte
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMapSummaryMarkdownFile(cmap),
-		NewConceptMapSummaryPageTemplate(cmap))
+		NewConceptMapSummaryPageTemplate(cmap, NewFilePathHelper("../../")))
 }
 
 func (sg *MarkdownSiteGenerator) generateConceptMapDetailPage(ctx context.Context, cmap *conceptmap.ConceptMap) error {
@@ -94,7 +94,7 @@ func (sg *MarkdownSiteGenerator) generateConceptMapDetailPage(ctx context.Contex
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMapDetailMarkdownFile(cmap),
-		NewConceptMapDetailPageTemplate(cmap))
+		NewConceptMapDetailPageTemplate(cmap, NewFilePathHelper("../../")))
 }
 
 func (sg *MarkdownSiteGenerator) generateConceptPage(ctx context.Context, cmap *conceptmap.ConceptMap, concept *conceptmap.Concept) error {
@@ -106,7 +106,7 @@ func (sg *MarkdownSiteGenerator) generateConceptPage(ctx context.Context, cmap *
 
 	return sg.renderTemplateToFile(
 		sg.filePathHelper.ConceptMarkdownFile(cmap, concept),
-		NewConceptPageTemplate(cmap, concept))
+		NewConceptPageTemplate(cmap, concept, NewFilePathHelper("../../../")))
 }
 
 func (sg *MarkdownSiteGenerator) renderTemplateToFile(file string, tpl PageTemplate) error {
