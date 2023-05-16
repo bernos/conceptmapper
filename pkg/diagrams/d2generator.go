@@ -28,7 +28,7 @@ type D2DiagramGenerator struct {
 
 func NewD2DiagramGenerator(opts ...D2DiagramGeneratorOption) *D2DiagramGenerator {
 	d := &D2DiagramGenerator{
-		direction:      DirectionRight,
+		direction:      DirectionDown,
 		rulerFactory:   defaultRulerFactory,
 		graphModifiers: []D2GraphModifier{},
 	}
@@ -43,46 +43,105 @@ func NewD2DiagramGenerator(opts ...D2DiagramGeneratorOption) *D2DiagramGenerator
 func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*conceptmap.Proposition, modifiers ...D2GraphModifier) (string, error) {
 	var err error
 
-	_, graph, err := d2lib.Compile(ctx, fmt.Sprintf("direction: %s", d.direction), nil)
+	script := `direction: %s
+classes: {
+	concept: {
+		height: 32
+	}		
+	predicate: {
+		shape: text
+		height: 32
+		style: {
+			italic: true
+		}
+	}
+}`
+
+	_, graph, err := d2lib.Compile(ctx, fmt.Sprintf(script, d.direction), nil)
 	if err != nil {
 		return "", nil
 	}
 
-	// Map concept slugs to descriptions
-	concepts := map[string]string{}
-
 	// Keeps track of which left concepts we've already joined to their predicates
 	leftConceptToPredicateEdges := map[string]int{}
+
+	// Keeps track of which concepts we've added to the diagram, so that we can avoid
+	// adding them more than once
+	appendedConcepts := map[string]int{}
+
+	cornerRadius := "8"
+	predicateClass := "predicate"
+
+	for _, mod := range modifiers {
+		graph, err = mod(graph)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	appendConcept := func(graph *d2graph.Graph, concept *conceptmap.Concept, customClasses ...string) (*d2graph.Graph, error) {
+		_, alreadyAdded := appendedConcepts[concept.Key()]
+
+		if !alreadyAdded {
+			var err error
+
+			classes := []string{"concept"}
+			classes = append(classes, customClasses...)
+
+			classAttrib := fmt.Sprintf("[%s]", strings.Join(classes, ";"))
+
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.class", concept.Key()), nil, &classAttrib)
+			if err != nil {
+				return graph, err
+			}
+
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.label", concept.Key()), nil, &concept.Label)
+			if err != nil {
+				return graph, err
+			}
+
+			appendedConcepts[concept.Key()] = 1
+		}
+
+		return graph, nil
+	}
 
 	for _, proposition := range propositions {
 
 		predicate := (string)(proposition.Predicate)
-		predicateKey := slug.Make(strings.Join([]string{proposition.Left.Key(), predicate, proposition.Right.Key()}, " "))
-		predicateKey = slug.Make(strings.Join([]string{proposition.Left.Key(), predicate}, " "))
+		predicateKey := slug.Make(strings.Join([]string{proposition.Left.Key(), predicate}, " "))
 
-		concepts[proposition.Left.Key()] = proposition.Left.Label
-		concepts[proposition.Right.Key()] = proposition.Right.Label
+		if predicate == "is a" || predicate == "is an" {
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.style.border-radius", proposition.Left.Key()), nil, &cornerRadius)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		// Left concept
+		graph, err = appendConcept(graph, proposition.Left)
+		if err != nil {
+			return "", err
+		}
+
+		// Right concept
+		graph, err = appendConcept(graph, proposition.Right)
+		if err != nil {
+			return "", err
+		}
+
+		// Predicate -> Right Concept
+		graph, _, err = d2oracle.Create(graph, fmt.Sprintf("%s -> %s", predicateKey, proposition.Right.Key()))
+		if err != nil {
+			return "", err
+		}
 
 		// Only draw edges from the left concept to identical predicates once
 		_, ok := leftConceptToPredicateEdges[predicateKey]
 		if !ok {
 
-			italic := "false"
-			bold := "false"
-			text := "text"
-
 			// Style it!
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.shape", predicateKey), nil, &text)
-			if err != nil {
-				return "", err
-			}
-
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.style.italic", predicateKey), nil, &italic)
-			if err != nil {
-				return "", err
-			}
-
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.style.bold", predicateKey), nil, &bold)
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.class", predicateKey), nil, &predicateClass)
 			if err != nil {
 				return "", err
 			}
@@ -102,26 +161,6 @@ func (d *D2DiagramGenerator) D2Script(ctx context.Context, propositions []*conce
 			leftConceptToPredicateEdges[predicateKey] = 1
 		}
 
-		// Predicate -> Right Concept
-		graph, _, err = d2oracle.Create(graph, fmt.Sprintf("%s -> %s", predicateKey, proposition.Right.Key()))
-		if err != nil {
-			return "", err
-		}
-	}
-
-	for _, mod := range modifiers {
-		graph, err = mod(graph)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	// Now, add each concept to the graph and add its label
-	for k, v := range concepts {
-		graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.label", k), nil, &v)
-		if err != nil {
-			return "", err
-		}
 	}
 
 	return d2format.Format(graph.AST), nil

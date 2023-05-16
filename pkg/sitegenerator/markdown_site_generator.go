@@ -25,15 +25,10 @@ type MarkdownSiteGenerator struct {
 	filePathHelper   *FilePathHelper
 }
 
-func defaultDiagramGenerator() DiagramGenerator {
-	return diagrams.NewD2DiagramGenerator(
-		diagrams.WithDirection(diagrams.DirectionDown))
-}
-
 func NewMarkdownSiteGenerator(outputDir string, opts ...SiteGeneratorOption) *MarkdownSiteGenerator {
 
 	sg := &MarkdownSiteGenerator{
-		diagramGenerator: defaultDiagramGenerator(),
+		diagramGenerator: diagrams.NewD2DiagramGenerator(),
 		filePathHelper:   NewFilePathHelper(outputDir),
 	}
 
