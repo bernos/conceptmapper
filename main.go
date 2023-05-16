@@ -45,9 +45,6 @@ func main() {
 						return err
 					}
 
-					// diagramGenerator := diagrams.NewD2DiagramGenerator(
-					// 	diagrams.WithDirection(diagrams.DirectionDown))
-
 					siteGenererator := sitegenerator.NewMarkdownSiteGenerator(outputDir)
 
 					return siteGenererator.GenerateSite(ctx, maps)
