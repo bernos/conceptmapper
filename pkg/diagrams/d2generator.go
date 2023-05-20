@@ -48,6 +48,12 @@ classes: {
 	concept: {
 		height: 32
 	}		
+	conceptRounded: {
+		height: 32
+		style: {
+			border-radius: 8
+		}
+	}
 	predicate: {
 		shape: text
 		height: 32
@@ -65,12 +71,10 @@ classes: {
 	// Keeps track of which left concepts we've already joined to their predicates
 	leftConceptToPredicateEdges := map[string]int{}
 
-	// Keeps track of which concepts we've added to the diagram, so that we can avoid
-	// adding them more than once
-	appendedConcepts := map[string]int{}
-
-	cornerRadius := "8"
 	predicateClass := "predicate"
+	defaultConceptClass := "concept"
+
+	appendConcept := d.distinctConceptAppenderFunc()
 
 	for _, mod := range modifiers {
 		graph, err = mod(graph)
@@ -79,53 +83,26 @@ classes: {
 		}
 	}
 
-	appendConcept := func(graph *d2graph.Graph, concept *conceptmap.Concept, customClasses ...string) (*d2graph.Graph, error) {
-		_, alreadyAdded := appendedConcepts[concept.Key()]
-
-		if !alreadyAdded {
-			var err error
-
-			classes := []string{"concept"}
-			classes = append(classes, customClasses...)
-
-			classAttrib := fmt.Sprintf("[%s]", strings.Join(classes, ";"))
-
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.class", concept.Key()), nil, &classAttrib)
-			if err != nil {
-				return graph, err
-			}
-
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.label", concept.Key()), nil, &concept.Label)
-			if err != nil {
-				return graph, err
-			}
-
-			appendedConcepts[concept.Key()] = 1
-		}
-
-		return graph, nil
-	}
-
 	for _, proposition := range propositions {
 
 		predicate := (string)(proposition.Predicate)
 		predicateKey := slug.Make(strings.Join([]string{proposition.Left.Key(), predicate}, " "))
+		leftClass := defaultConceptClass
+		rightClass := defaultConceptClass
 
+		// Draw concepts
 		if predicate == "is a" || predicate == "is an" {
-			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.style.border-radius", proposition.Left.Key()), nil, &cornerRadius)
-			if err != nil {
-				return "", err
-			}
+			leftClass = "conceptRounded"
 		}
 
 		// Left concept
-		graph, err = appendConcept(graph, proposition.Left)
+		graph, err = appendConcept(graph, proposition.Left, leftClass)
 		if err != nil {
 			return "", err
 		}
 
 		// Right concept
-		graph, err = appendConcept(graph, proposition.Right)
+		graph, err = appendConcept(graph, proposition.Right, rightClass)
 		if err != nil {
 			return "", err
 		}
@@ -199,6 +176,38 @@ func (d *D2DiagramGenerator) GenerateSingleConceptSVG(ctx context.Context, cmap 
 	}
 
 	return d.generateSVGFileFromScript(ctx, script, file)
+}
+
+// distinctConceptAppenderFunc returns a function that appends a concept to a graph
+// exactly once. Calling the function multiple times with the same concept will only
+// append the concept once. Concepts with the same Key are considered equivalent
+func (d *D2DiagramGenerator) distinctConceptAppenderFunc() func(*d2graph.Graph, *conceptmap.Concept, string) (*d2graph.Graph, error) {
+
+	// Keeps track of which concepts we've added to the diagram, so that we can avoid
+	// adding them more than once
+	appendedConcepts := map[string]int{}
+
+	return func(graph *d2graph.Graph, concept *conceptmap.Concept, class string) (*d2graph.Graph, error) {
+		_, alreadyAdded := appendedConcepts[concept.Key()]
+
+		if !alreadyAdded {
+			var err error
+
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.class", concept.Key()), nil, &class)
+			if err != nil {
+				return graph, err
+			}
+
+			graph, err = d2oracle.Set(graph, fmt.Sprintf("%s.label", concept.Key()), nil, &concept.Label)
+			if err != nil {
+				return graph, err
+			}
+
+			appendedConcepts[concept.Key()] = 1
+		}
+
+		return graph, nil
+	}
 }
 
 func (d *D2DiagramGenerator) generateSVGFileFromScript(ctx context.Context, script string, file string) error {
